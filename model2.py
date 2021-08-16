@@ -31,12 +31,16 @@ target=fich['loss']
 df_train=fich.iloc[:,:-1]
 df_viz=fich.copy()
 col_init=df_train.columns
+#####
+
+sfm=SelectFromModel(RandomForestRegressor(n_estimators=50,random_state=0,verbose=3))
+sfm.fit(df_train[col_init],target)
 
 ###################################################
 
 pip4=make_pipeline(PCA(100),KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
 pip5=make_pipeline(PCA(90),KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
-pip6=make_pipeline(KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),RandomForestRegressor(n_estimators=50,verbose=3))
+pip6=make_pipeline(KBinsDiscretizer(n_bins=25, encode='ordinal',strategy='kmeans'),RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18))
 
 para={'kbinsdiscretizer__n_bins':[15,20,25]}
 gs1=GridSearchCV(pip4,para,scoring='neg_root_mean_squared_error',cv=3,verbose=1)
@@ -50,7 +54,30 @@ resu8=cross_validate(pip5,df_train[col_init],target,cv=KFold(n_splits=10,shuffle
 resu9=cross_validate(pip6,df_train[col_init],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 
+# n_bins=20, encode='ordinal',strategy='kmeans')
+# sans max_depth : train = -3.050 test = -8.060 
+# avec max_depth = 20 : train = -3.055 test = -8.046 
+# avec max_depth = 19 : train = -6.700 test = -7.936 
+# avec max_depth = 18 : train = -7.414 test = -7.923 
+#   avec n_bins=25 
+#                     : train = -6.988 test = -7.928
+# avec max_depth = 17 : train = -7.087 test = -7.933 
+
+# avec max_depth = 15 : train = -7.384 test = -7.924 
+
+# sans binning
+
+# avec max_depth = 21 : train = -6.789 test = -7.934 
+# avec max_depth = 20 : train = -6.936 test = -7.927 
+# avec max_depth = 19 : train = -7.066 test = -7.932 
+
 def affiche_score(cr_va):
+    '''affiche le train score et le test score (moyenne et std) d'un cross_validate
+    Arguments : un cross_validate
+    
+    
+    '''
+
     print('Train score : mean {} std {} \nTest score : mean {} std {} '.format(
         round(cr_va['train_score'].mean(),3),
         round(cr_va['train_score'].std(),3),
