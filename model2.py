@@ -24,6 +24,20 @@ from sklearn.decomposition import PCA
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_squared_error
 
+def affiche_score(cr_va):
+    '''affiche le train score et le test score (moyenne et std) d'un cross_validate
+    Arguments : un cross_validate
+    
+    
+    '''
+
+    print('Train score : mean {} std {} \nTest score : mean {} std {} '.format(
+        round(cr_va['train_score'].mean(),3),
+        round(cr_va['train_score'].std(),3),
+        round(cr_va['test_score'].mean(),3),
+        round(cr_va['test_score'].std(),3)
+    ))
+
 fich=pd.read_csv('train.csv').set_index('id')
 test=pd.read_csv('test.csv').set_index('id')
 
@@ -33,14 +47,19 @@ df_viz=fich.copy()
 col_init=df_train.columns
 #####
 
-sfm=SelectFromModel(RandomForestRegressor(n_estimators=50,random_state=0,verbose=3))
-sfm.fit(df_train[col_init],target)
+rfr=RandomForestRegressor(n_estimators=50,random_state=0,verbose=3)
+rfr.fit(df_train[col_init],target)
+df_feat_imp=pd.DataFrame([col_init,rfr.feature_importances_], index=['variable','feature_importance']).T.set_index('variable')
+df_feat_imp.sort_values('feature_importance')
+df_feat_imp.to_csv('feature_importance.csv')
+perm_imp=pd.read_csv('permutation_importance_rfr',index_col=0)
+col_fil95=perm_imp.sort_values('feature_importances').index[5:]
 
 ###################################################
 
 pip4=make_pipeline(PCA(100),KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
 pip5=make_pipeline(PCA(90),KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
-pip6=make_pipeline(KBinsDiscretizer(n_bins=25, encode='ordinal',strategy='kmeans'),RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18))
+pip6=make_pipeline(RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18))
 
 para={'kbinsdiscretizer__n_bins':[15,20,25]}
 gs1=GridSearchCV(pip4,para,scoring='neg_root_mean_squared_error',cv=3,verbose=1)
@@ -51,8 +70,10 @@ resu7=cross_validate(pip4,df_train[col_init],target,cv=KFold(n_splits=10,shuffle
 resu8=cross_validate(pip5,df_train[col_init],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 
-resu9=cross_validate(pip6,df_train[col_init],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
+resu9=cross_validate(pip6,df_train[col_fil95],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
+
+affiche_score(resu9)
 
 # n_bins=20, encode='ordinal',strategy='kmeans')
 # sans max_depth : train = -3.050 test = -8.060 
@@ -71,19 +92,6 @@ resu9=cross_validate(pip6,df_train[col_init],target,cv=KFold(n_splits=10,shuffle
 # avec max_depth = 20 : train = -6.936 test = -7.927 
 # avec max_depth = 19 : train = -7.066 test = -7.932 
 
-def affiche_score(cr_va):
-    '''affiche le train score et le test score (moyenne et std) d'un cross_validate
-    Arguments : un cross_validate
-    
-    
-    '''
-
-    print('Train score : mean {} std {} \nTest score : mean {} std {} '.format(
-        round(cr_va['train_score'].mean(),3),
-        round(cr_va['train_score'].std(),3),
-        round(cr_va['test_score'].mean(),3),
-        round(cr_va['test_score'].std(),3)
-    ))
 
 affiche_score(resu8)
 affiche_score(resu7)
