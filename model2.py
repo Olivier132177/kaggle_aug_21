@@ -54,26 +54,31 @@ df_feat_imp.sort_values('feature_importance')
 df_feat_imp.to_csv('feature_importance.csv')
 perm_imp=pd.read_csv('permutation_importance_rfr',index_col=0)
 col_fil95=perm_imp.sort_values('feature_importances').index[5:]
+col_fil90=perm_imp.sort_values('feature_importances').index[10:]
 
 ###################################################
 
-pip4=make_pipeline(PCA(100),KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
+pip4=make_pipeline(KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
 pip5=make_pipeline(PCA(90),KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
 pip6=make_pipeline(RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18))
 
 para={'kbinsdiscretizer__n_bins':[15,20,25]}
 gs1=GridSearchCV(pip4,para,scoring='neg_root_mean_squared_error',cv=3,verbose=1)
 
-resu7=cross_validate(pip4,df_train[col_init],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
+resu7=cross_validate(pip4,df_train[col_fil95],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
+affiche_score(resu7)
 
 resu8=cross_validate(pip5,df_train[col_init],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 
 resu9=cross_validate(pip6,df_train[col_fil95],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
-
 affiche_score(resu9)
+
+resu10=cross_validate(pip6,df_train[col_fil90],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
+    verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
+affiche_score(resu10)
 
 # n_bins=20, encode='ordinal',strategy='kmeans')
 # sans max_depth : train = -3.050 test = -8.060 
@@ -92,6 +97,8 @@ affiche_score(resu9)
 # avec max_depth = 20 : train = -6.936 test = -7.927 
 # avec max_depth = 19 : train = -7.066 test = -7.932 
 
+# avec max_depth = 18 et 5 features en moins : train = -7.187 std 0.009 test = -7.907 std 0.046 
+# avec max_depth = 18 et 10 features en moins : train =  -7.185 std 0.015 test = -7.904 std 0.046 
 
 affiche_score(resu8)
 affiche_score(resu7)
