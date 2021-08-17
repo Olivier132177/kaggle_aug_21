@@ -12,7 +12,7 @@ from sklearn.pipeline import make_pipeline, make_union
 from sklearn.model_selection import cross_validate,cross_val_predict,KFold,GridSearchCV
 from sklearn.feature_selection import f_regression, SelectFromModel, SelectPercentile,mutual_info_regression,SelectKBest
 from sklearn.experimental import enable_hist_gradient_boosting
-from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor
+from sklearn.ensemble import RandomForestRegressor, HistGradientBoostingRegressor,VotingRegressor,BaggingRegressor
 from sklearn.svm import SVR, LinearSVR
 from sklearn.neighbors import NearestNeighbors
 from itertools import combinations, permutations
@@ -54,31 +54,24 @@ df_feat_imp.sort_values('feature_importance')
 df_feat_imp.to_csv('feature_importance.csv')
 perm_imp=pd.read_csv('permutation_importance_rfr',index_col=0)
 col_fil95=perm_imp.sort_values('feature_importances').index[5:]
-col_fil90=perm_imp.sort_values('feature_importances').index[10:]
+col_fil80=perm_imp.sort_values('feature_importances').index[20:]
+col_fil70=perm_imp.sort_values('feature_importances').index[30:]
 
 ###################################################
 
-pip4=make_pipeline(KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
-pip5=make_pipeline(PCA(90),KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[1000,3160]))
+pip4=make_pipeline(KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[316,1000,3160]))
 pip6=make_pipeline(RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18))
 
 para={'kbinsdiscretizer__n_bins':[15,20,25]}
 gs1=GridSearchCV(pip4,para,scoring='neg_root_mean_squared_error',cv=3,verbose=1)
 
-resu7=cross_validate(pip4,df_train[col_fil95],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
+resu7=cross_validate(pip4,df_train[col_fil70],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 affiche_score(resu7)
 
-resu8=cross_validate(pip5,df_train[col_init],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
+resu8=cross_validate(pip6,df_train[col_fil80],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
-
-resu9=cross_validate(pip6,df_train[col_fil95],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
-    verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
-affiche_score(resu9)
-
-resu10=cross_validate(pip6,df_train[col_fil90],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),\
-    verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
-affiche_score(resu10)
+affiche_score(resu8)
 
 # n_bins=20, encode='ordinal',strategy='kmeans')
 # sans max_depth : train = -3.050 test = -8.060 
@@ -99,16 +92,38 @@ affiche_score(resu10)
 
 # avec max_depth = 18 et 5 features en moins : train = -7.187 std 0.009 test = -7.907 std 0.046 
 # avec max_depth = 18 et 10 features en moins : train =  -7.185 std 0.015 test = -7.904 std 0.046 
+# avec max_depth = 18 et 20 features en moins : train =  -7.153 std 0.019 test = -7.909 std 0.032 
+     # max_features = 0.8                     : train = -7.153 std 0.011 test = 7.908 std 0.034
 
-affiche_score(resu8)
+
+# KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[316,1000,3160]))
+    # avec 95% des variables
+        #Train score : mean -7.818 std 0.005 
+        #Test score : mean -7.87 std 0.044 
+        #   -> kaggle 7.90861
+    # avec 90% des variables
+        #Train score : mean -7.82 std 0.005 
+        #Test score : mean -7.87 std 0.044         #   
+    # avec 70% des variables
+        #Train score : mean  -7.831 std 0.008  
+        #Test score : mean  -7.875 std 0.034          #   
+    
 affiche_score(resu7)
 
-[resu7['estimator'][i][3].alpha_ for i in range(10)]
+[resu7['estimator'][i][2].alpha_ for i in range(10)]
 
 #### ETUDE DES RESIDUS ###
 df_viz['target']=target
 
-ypred_train= cross_val_predict(pip4,df_train[col_init],target,cv=KFold(n_splits=10,shuffle=True, random_state=0),verbose=3)
+ypred_train= cross_val_predict(pip4,df_train[col_init],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),verbose=3)
+ypred_train2= cross_val_predict(pip6,df_train[col_init],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),verbose=3)
+
+(mean_squared_error(target,ypred_train))**(1/2)
+(mean_squared_error(target,ypred_train2))**(1/2)
+
+moy_pred=(ypred_train+ypred_train2)/2
+(mean_squared_error(target,moy_pred))**(1/2)
+
 df_viz['y_pred']=ypred_train
 
 residus= ypred_train - target.values
@@ -136,7 +151,11 @@ residus
 ###################################""
 
 pip4.fit(df_train,target)
-y_pred=pip4.predict(test)
+y_pred_1=pip4.predict(test)
+
+pip6.fit(df_train,target)
+y_pred_2=pip6.predict(test)
+
 
 test['loss']=y_pred
 test_final=test[['loss']]
