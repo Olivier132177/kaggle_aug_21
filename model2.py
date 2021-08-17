@@ -45,7 +45,37 @@ target=fich['loss']
 df_train=fich.iloc[:,:-1]
 df_viz=fich.copy()
 col_init=df_train.columns
+
+perm_imp=pd.read_csv('permutation_importance_rfr',index_col=0)
+
 #####
+
+stsc=StandardScaler()
+df_train_ss=pd.DataFrame(stsc.fit_transform(df_train),columns=col_init)
+df_train_ss['loss']=target
+
+#tab_var=[]
+#for i in range(100):
+#    col_fil=perm_imp.sort_values('feature_importances').index[i:]
+#    km=KMeans(n_clusters=10,random_state=0)
+#    cluster_km=km.fit_predict(df_train_ss[col_fil])
+#    df_train_ss['clusters']=cluster_km
+#    vari=df_train_ss[['clusters','loss']].groupby('clusters').mean().var()
+#    tab_var.append(vari)
+#    print ('{} {}'.format(i,vari))
+
+#t_var=pd.Series([tab_var[i][0] for i in range(100)])
+#t_var.to_csv('var_kmeans')
+
+col_fil=perm_imp.sort_values('feature_importances').index[93:]
+km=KMeans(n_clusters=10,random_state=0)
+cluster_km=km.fit_predict(df_train_ss[col_fil])
+df_train_ss['clusters']=cluster_km
+clu=['clusters']
+sns.boxplot(data=df_train_ss, x='clusters',y='loss')
+plt.show(block=False)
+
+df_train['clusters']=cluster_km
 
 rfr=RandomForestRegressor(n_estimators=50,random_state=0,verbose=3)
 rfr.fit(df_train[col_init],target)
@@ -53,14 +83,16 @@ df_feat_imp=pd.DataFrame([col_init,rfr.feature_importances_], index=['variable',
 df_feat_imp.sort_values('feature_importance')
 df_feat_imp.to_csv('feature_importance.csv')
 perm_imp=pd.read_csv('permutation_importance_rfr',index_col=0)
-col_fil95=perm_imp.sort_values('feature_importances').index[5:]
+col_fil90=perm_imp.sort_values('feature_importances').index[10:]
 col_fil80=perm_imp.sort_values('feature_importances').index[20:]
 col_fil70=perm_imp.sort_values('feature_importances').index[30:]
 
+col_v2=np.hstack([clu,col_fil90])
+col_v2
 ###################################################
 
 pip4=make_pipeline(KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[316,1000,3160]))
-pip6=make_pipeline(RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18))
+pip6=make_pipeline(RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18,max_features=0.95))
 
 para={'kbinsdiscretizer__n_bins':[15,20,25]}
 gs1=GridSearchCV(pip4,para,scoring='neg_root_mean_squared_error',cv=3,verbose=1)
@@ -69,7 +101,7 @@ resu7=cross_validate(pip4,df_train[col_fil70],target,cv=KFold(n_splits=5,shuffle
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 affiche_score(resu7)
 
-resu8=cross_validate(pip6,df_train[col_fil80],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),\
+resu8=cross_validate(pip6,df_train[col_v2],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 affiche_score(resu8)
 
@@ -156,6 +188,7 @@ y_pred_1=pip4.predict(test)
 pip6.fit(df_train,target)
 y_pred_2=pip6.predict(test)
 
+y_pred = (y_pred_1+y_pred_2)/2
 
 test['loss']=y_pred
 test_final=test[['loss']]

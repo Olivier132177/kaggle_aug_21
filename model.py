@@ -100,6 +100,9 @@ df_train=fich.iloc[:,:-1]
 df_viz=fich.copy()
 col_init=df_train.columns
 
+stsc=StandardScaler()
+df_train2=pd.DataFrame(stsc.fit_transform(df_train),columns=col_init)
+df_train2
 ###################################  VISUALISATION
 # DISTRIBUTION DE lA TARGET
 
@@ -164,7 +167,6 @@ for i in col_init :
 np.sort(t_coef_inv)[:10]
 np.sort(t_coef_inv)[-10:]
 
-
 # ADDITIONS SOUSTRACTIONS
 
 comb=combinations(col_init,2)
@@ -172,12 +174,17 @@ t_coef_add=[]
 t_coef_sub_1=[]
 t_coef_sub_2=[]
 for i in comb :
-    som= df_train.loc[:,i[0]] + df_train.loc[:,i[1]]
-    t_coef_add.append(som.corr(target,method='spearman'))
-    sub_1= df_train.loc[:,i[0]] - df_train.loc[:,i[1]]
-    sub_2= df_train.loc[:,i[1]] - df_train.loc[:,i[0]]
-    t_coef_sub_1.append(sub_1.corr(target, method='spearman'))
-    t_coef_sub_2.append(sub_2.corr(target, method='spearman'))
+    som= df_train2.loc[:,i[0]] + df_train2.loc[:,i[1]]
+    t_coef_add.append(som.corr(target))
+    sub_1= df_train2.loc[:,i[0]] - df_train2.loc[:,i[1]]
+    sub_2= df_train2.loc[:,i[1]] - df_train2.loc[:,i[0]]
+    t_coef_sub_1.append(sub_1.corr(target))
+    t_coef_sub_2.append(sub_2.corr(target))
+
+np.sort(t_coef_add)
+np.sort(t_coef_sub_1)
+np.sort(t_coef_sub_2)
+
 
 # ACP
 
