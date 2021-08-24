@@ -55,54 +55,56 @@ perm_imp.sort_values('feature_importances', ascending=False)
 #####
 col_sel=perm_imp.sort_values('feature_importances', ascending=False).head(50).index
 
-#df_train_ss['loss']=target
-
-#tab_var=[]
-#for i in range(100):
-#    col_fil=perm_imp.sort_values('feature_importances').index[i:]
-#    km=KMeans(n_clusters=10,random_state=0)
-#    cluster_km=km.fit_predict(df_train_ss[col_fil])
-#    df_train_ss['clusters']=cluster_km
-#    vari=df_train_ss[['clusters','loss']].groupby('clusters').mean().var()
-#    tab_var.append(vari)
-#    print ('{} {}'.format(i,vari))
-
-#t_var=pd.Series([tab_var[i][0] for i in range(100)])
-#t_var.to_csv('var_kmeans')
-
-
 
 X_train, X_test, y_train, y_test=train_test_split(df_train,target,random_state=0,train_size=0.75)
 
-rfr_test=RandomForestRegressor(random_state=0,n_estimators=200, verbose=2, max_depth=20, max_features=0.1)
+rfr_test=RandomForestRegressor(random_state=0,verbose=2,n_estimators=400,max_depth=18,max_features=0.1)
 
-par={'n_estimators':[300,400],'max_depth':[18,19],'max_features':[0.1]}
+rfr_test.fit(df_train[col_sel],target)
+y_pred=rfr_test.predict(test[col_sel])
+
+par={'n_estimators':[400],'max_depth':[17,18],'max_features':[0.1,0.3,0.5]}
 gs1=GridSearchCV(rfr_test,param_grid=par,scoring='neg_root_mean_squared_error',cv=KFold(n_splits=3,shuffle=True, random_state=0),verbose=3)
 gs1.fit(X_train[col_sel],y_train)
-
 df_gs=pd.DataFrame(gs1.cv_results_)
-df_gs['variables']='col_50'
+df_gs['variables']='col_40'
+
 df_gs[['param_max_features','param_n_estimators','param_max_depth','mean_test_score',\
     'std_test_score','variables','mean_fit_time']].sort_values('mean_test_score',ascending=False)
 
-df_gs.to_csv('gs_rfr3.csv')
+df_gs.to_csv('gs_rfr4.csv')
 
 #record
 #param_max_features param_n_estimators param_max_depth  mean_test_score  std_test_score variables  mean_fit_time
-#                 0.1                300              19        -7.895078        0.030227    col_50     261.579269
+#1                 0.1                400              18        -7.893330        0.030857    col_50     360.346899
 
-fff=pd.read_csv('gs_rfr_combi.csv',index_col=0)
-fff['variables']='all'
+#Train score : mean -7.013 std 0.015 
+#Test score : mean -7.893 std 0.014 
+#Kaggle # 7.93896
 
+#avec max_features = 0.2
+#Train score : mean -7.038 std 0.016 
+#Test score : mean -7.892 std 0.015 
 
+df_gs
+
+fff=pd.read_csv('gs_combi_4.csv',index_col=0)
+fff
+ggg=fff.append(df_gs)
+#ggg.to_csv('gs_combi_4.csv')
+fff[['param_max_features','param_n_estimators','param_max_depth','mean_test_score',\
+    'std_test_score','variables','mean_fit_time']].sort_values('mean_test_score',ascending=False).head(20)
+
+rfr_test_2=RandomForestRegressor(random_state=0,verbose=2, max_features=0.05, n_estimators=400,max_depth=18)
+
+cv_rfr=cross_validate(rfr_test_2,df_train,target,cv=KFold(n_splits=4,shuffle=True, random_state=0),\
+    verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
+affiche_score(cv_rfr)
 
 cv_test=cross_validate(rfr_test,df_train,target,cv=KFold(n_splits=3,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 df_train_ss
 
-sv=SVR(verbose=3)
-cv_sv=cross_validate(sv,df_train_ss,target,cv=KFold(n_splits=3,shuffle=True, random_state=0),\
-    verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 
 df_fi=pd.DataFrame([cv_test['estimator'][i].feature_importances_ for i in range(3)],columns=col_init)
 
@@ -132,7 +134,22 @@ rfr_test.feature_importances_
 plt.errorbar(x=np.arange(0,20,1),y=df_perm_sum['mean'],yerr=df_perm_sum['std'].values)
 plt.show()
 
-gbr=GradientBoostingRegressor(random_state=0,n_estimators=200,verbose=3)
+gbr=GradientBoostingRegressor(random_state=0,n_estimators=300,verbose=3)
+gbr2=GradientBoostingRegressor(random_state=0,n_estimators=300,verbose=3)
+
+gbr2.fit(df_train[ordre[:10]],target)
+y_pred=gbr2.predict(test[ordre[:10]])
+
+gbr.fit(df_train,target)
+y_pred=gbr.predict(test)
+permu_gbr=permutation_importance(gbr, df_train, target, scoring='neg_root_mean_squared_error',random_state=0)
+
+df_permu_gbr=pd.DataFrame(permu_gbr['importances'], index=df_train.columns)
+ordre=pd.Series(permu_gbr['importances_mean'], index=df_train.columns).sort_values(ascending=False).index
+ordre[:10]
+sns.boxplot(data=df_permu_gbr.T[ordre])
+plt.xticks(rotation=90)
+plt.show()
 
 cv_test=cross_validate(gbr,df_train[col_init],target,cv=KFold(n_splits=3,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
@@ -142,8 +159,11 @@ affiche_score(cv_test)
 # (train=-4.591, test=-7.953) avec 20 features et max_depth=30
 # (train=-5.617, test=-7.931) avec 20 features et max_depth=25
 
-#GradiantBoostingRegressor 200 estimators
+#GradiantBoostingRegressor 
+#    200 estimators
     #train mean 7.784 std 0.001 #test score 7.87 std 0.003 (kaggle 7.90981)
+#    300 estimators
+# kaggle 7.90186
 
 df_cv=pd.DataFrame([cv_test['estimator'][i].feature_importances_ for i in range(3)], columns=col_init)
 
@@ -212,8 +232,6 @@ col_fil90=perm_imp.sort_values('feature_importances').index[10:]
 col_fil80=perm_imp.sort_values('feature_importances').index[20:]
 col_fil70=perm_imp.sort_values('feature_importances').index[30:]
 
-col_v2=np.hstack([clu,col_fil90])
-col_v2
 ###################################################
 
 pip4=make_pipeline(KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),OneHotEncoder(handle_unknown='ignore'), RidgeCV(alphas=[316,1000,3160]))
@@ -222,13 +240,9 @@ pip40=make_pipeline(KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmean
 pip6=make_pipeline(RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18,max_features=0.95))
 pip60=make_pipeline(KBinsDiscretizer(n_bins=20, encode='ordinal',strategy='kmeans'),RandomForestRegressor(n_estimators=50,verbose=3,max_depth=18))
 
-resu7=cross_validate(pip4,df_train[col_fil70],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),\
+resu7=cross_validate(pip4,df_train,target,cv=KFold(n_splits=4,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
 affiche_score(resu7)
-
-resu8=cross_validate(pip6,df_train[col_v2],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),\
-    verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
-affiche_score(resu8)
 
 resu40=cross_validate(pip40,df_train[col_init],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),\
     verbose=3,return_estimator=True,return_train_score=True,scoring='neg_root_mean_squared_error')
@@ -287,9 +301,10 @@ sns.boxplot(data=df_feat_imp, orient='h')
 plt.show()
 
 ypred_train= cross_val_predict(pip4,df_train[col_init],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),verbose=3)
+(mean_squared_error(target,ypred_train))**(1/2)
+
 ypred_train2= cross_val_predict(pip6,df_train[col_init],target,cv=KFold(n_splits=5,shuffle=True, random_state=0),verbose=3)
 
-(mean_squared_error(target,ypred_train))**(1/2)
 (mean_squared_error(target,ypred_train2))**(1/2)
 
 moy_pred=(ypred_train+ypred_train2)/2
@@ -328,7 +343,14 @@ y_pred=rfr_test.predict(test[col_init])
 [rfr_test.estimators_[i].get_depth() for i in range(200)]
 
 pip4.fit(df_train,target)
-y_pred_1=pip4.predict(test)
+y_pred=pip4.predict(test[col_init])
+
+df_coefs=pd.DataFrame([pip4[1].get_feature_names(col_init),pip4[2].coef_]).T
+df_coefs.columns=['variable','coefficient']
+df_coefs=df_coefs.set_index('variable')
+df_coefs['abs_coefficient']=np.abs(df_coefs['coefficient'])
+
+df_coefs.sort_values('abs_coefficient', ascending=False).tail(20)
 
 pip6.fit(df_train,target)
 y_pred_2=pip6.predict(test)
@@ -340,8 +362,23 @@ y_pred=gbr.predict(test)
 y_pred = (y_pred_1+y_pred_2)/2
 
 test['loss']=y_pred
+test['loss']=cc.mean(axis=1)
+
 test_final=test[['loss']]
 test_final.sort_values('loss')
 test_final.to_csv('resultat.csv')
+#test_final.to_csv('meilleur_resultat_gbr.csv')
+test_final.to_csv('meilleur_resultat_rid.csv')
 
 df_viz['residus']=residus
+
+
+aa=pd.read_csv('meilleur_resultat_gbr.csv', index_col=0)
+bb=pd.read_csv('meilleur_resultat_rid.csv', index_col=0)
+
+cc=aa.join(bb,lsuffix='aa',rsuffix='bb')
+cc.mean(axis=1)
+
+# kaggle 7.89462 moyenne meilleur ridge_cv et meilleur gbr
+
+test
