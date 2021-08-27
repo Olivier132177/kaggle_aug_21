@@ -47,32 +47,146 @@ df_train=fich.iloc[:,:-1]
 df_viz=fich.copy()
 col_init=df_train.columns
 
-stsc=StandardScaler()
-df_train_ss=pd.DataFrame(stsc.fit_transform(df_train),columns=col_init)
 
 perm_imp=pd.read_csv('permutation_importance_rfr',index_col=0)
 perm_imp.sort_values('feature_importances', ascending=False)
 #####
-col_sel=perm_imp.sort_values('feature_importances', ascending=False).head(50).index
+nb_feat=40
+col_sel=perm_imp.sort_values('feature_importances', ascending=False).head(nb_feat).index
 
 
 X_train, X_test, y_train, y_test=train_test_split(df_train,target,random_state=0,train_size=0.75)
 
-rfr_test=RandomForestRegressor(random_state=0,verbose=2,n_estimators=400,max_depth=18,max_features=0.1)
-
+rfr_test=RandomForestRegressor(random_state=0,verbose=3,n_estimators=400,max_depth=16, max_features=10)
 rfr_test.fit(df_train[col_sel],target)
 y_pred=rfr_test.predict(test[col_sel])
 
-par={'n_estimators':[400],'max_depth':[17,18],'max_features':[0.1,0.3,0.5]}
-gs1=GridSearchCV(rfr_test,param_grid=par,scoring='neg_root_mean_squared_error',cv=KFold(n_splits=3,shuffle=True, random_state=0),verbose=3)
+
+par={'n_estimators':[400],'max_depth':[12,16,20],'max_features':[10]}
+gs1=GridSearchCV(rfr_test,param_grid=par,scoring='neg_root_mean_squared_error',cv=KFold(n_splits=4,shuffle=True, random_state=0),\
+    verbose=3,return_train_score=True)
 gs1.fit(X_train[col_sel],y_train)
+
 df_gs=pd.DataFrame(gs1.cv_results_)
-df_gs['variables']='col_40'
+df_gs.columns
+col1=['param_max_depth','param_max_features', 'param_n_estimators', 'mean_test_score']
+df_gs[col1].sort_values('mean_test_score', ascending=False)
+df_e=df_e.sort_values('param_max_depth')
+mf_50_10=df_gs[df_gs['param_max_features']==10].sort_values('param_max_depth')
+mf_50_10
+#df_d=df_gs.copy()
 
-df_gs[['param_max_features','param_n_estimators','param_max_depth','mean_test_score',\
-    'std_test_score','variables','mean_fit_time']].sort_values('mean_test_score',ascending=False)
+#df_a 'n_estimators':[40],'max_depth':np.arange(1,19,1),'max_features':[10]} colsel : 50
+#df_b 'n_estimators':[40],'max_depth':np.arange(1,19,1),'max_features':[10]} colsel : 75
+#df_c 'n_estimators':[40],'max_depth':np.arange(1,19,1),'max_features':[10]} colsel : 25
+#df_d 'n_estimators':[100],'max_depth':np.arange(1,19,1),'max_features':[10]} colsel : 50
+#df_e 'n_estimators':[400],'max_depth':[12,16,20],'max_features':[10]} colsel : 50
 
-df_gs.to_csv('gs_rfr4.csv')
+##############
+#mf_100=mf_100.sort_values('param_max_depth')
+
+plt.plot(mf_100['param_max_depth'],mf_100['mean_test_score'], label='all f_max_f=100', marker='D')
+plt.plot(mf_50['param_max_depth'],mf_50['mean_test_score'], label='all f_max_f=50', marker='D')
+plt.plot(mf_10['param_max_depth'],mf_10['mean_test_score'], label='all f_max_f=10', marker='D')
+plt.plot(mf_50_50['param_max_depth'],mf_50_50['mean_test_score'], label='50% f_max_f=50', marker='D')
+plt.plot(mf_50_10['param_max_depth'],mf_50_10['mean_test_score'], label='50% f_max_f=10', marker='D')
+
+plt.legend()
+plt.title('Test score en fonction du nombre d\'estimateurs')
+plt.xlabel('Nombre d\'estimateurs')
+plt.ylabel('neg_root_mean_squared_error')
+plt.show()
+#######################################
+
+df_e['mean_test_score'].mean()
+
+#########################################################################""
+
+#plt.plot(gg.loc[gg['param_n_estimators']==10,'param_max_depth'], gg.loc[gg['param_n_estimators']==10,'mean_test_score'],label='10', marker='d')
+#plt.plot(gg.loc[gg['param_n_estimators']==20,'param_max_depth'], gg.loc[gg['param_n_estimators']==20,'mean_test_score'],label='20', marker='d')
+#plt.plot(gg.loc[gg['param_n_estimators']==30,'param_max_depth'], gg.loc[gg['param_n_estimators']==30,'mean_test_score'],label='30', marker='d')
+plt.plot(gg.loc[gg['param_n_estimators']==40,'param_max_depth'], gg.loc[gg['param_n_estimators']==40,'mean_test_score'],label='40', marker='d')
+plt.plot(gg.loc[gg['param_n_estimators']==400,'param_max_depth'], gg.loc[gg['param_n_estimators']==400,'mean_test_score'],label='400', marker='d')
+plt.plot(gg.loc[gg['param_n_estimators']==1000,'param_max_depth'], gg.loc[gg['param_n_estimators']==1000,'mean_test_score'],label='1000', marker='d')
+#plt.plot(mf_50_10['param_max_depth'],mf_50_10['mean_test_score'],label='15 (50%var)',marker='d')
+#plt.plot(mf_50_10['param_max_depth'],mf_50_10['mean_test_score'],label='15 (50%var)',marker='d')
+plt.plot(df_a['param_max_depth'],df_a['mean_test_score'], label='40 50% f', marker='d')
+#plt.plot(df_b['param_max_depth'],df_b['mean_test_score'], label='40 75% f', marker='d')
+#plt.plot(df_c['param_max_depth'],df_c['mean_test_score'], label='40 25% f', marker='d')
+plt.plot(df_d['param_max_depth'],df_d['mean_test_score'], label='100 50% f', marker='d')
+plt.plot(df_e['param_max_depth'],df_e['mean_test_score'], label='400 50% f', marker='d')
+
+plt.legend()
+plt.xlabel('nb_estimators')
+plt.ylabel('mean test score')
+
+plt.show()
+
+
+gg=pd.read_csv('test_rfr.csv', index_col=0)
+gg[['param_max_depth','param_max_features','param_n_estimators','mean_test_score']].sort_values('mean_test_score', ascending=False)
+gg['param_n_estimators'].unique()
+
+
+########################################
+
+plt.subplot(3,1,1)
+plt.plot(mf_100['param_max_depth'],mf_100['mean_train_score'], label='train', color='b')
+plt.plot(mf_100['param_max_depth'],mf_100['mean_test_score'], label='test', color='r')
+plt.title('all features')
+
+plt.subplot(3,1,2)
+plt.plot(mf_50['param_max_depth'],mf_50['mean_train_score'], label='train', color='b')
+plt.plot(mf_50['param_max_depth'],mf_50['mean_test_score'], label='test', color='r')
+plt.title('50% features')
+
+plt.subplot(3,1,3)
+plt.plot(mf_10['param_max_depth'],mf_10['mean_train_score'], label='train', color='b')
+plt.plot(mf_10['param_max_depth'],mf_10['mean_test_score'], label='test', color='r')
+plt.title('10% features')
+
+plt.suptitle('Evolution train score / test score \n en fonction du max_features')
+plt.legend()
+plt.show()
+#############
+df_rfr[['param_max_features','param_n_estimators','param_max_depth','mean_test_score',\
+    'std_test_score','mean_fit_time']].sort_values('mean_test_score',ascending=False).head(20)
+
+df_rfr.to_csv('test_rfr.csv')
+#df_gs400=df_gs.copy()
+
+df_rfr.columns
+df_rfr[['param_max_depth','param_n_estimators','mean_test_score']].sort_values('mean_test_score')
+
+
+plt.plot(df_gs10['param_max_depth'],df_gs10['mean_test_score'], label='10_arbres', marker='D')
+plt.plot(df_gs20['param_max_depth'],df_gs20['mean_test_score'], label='20_arbres', marker='D')
+plt.plot(df_gs30['param_max_depth'],df_gs30['mean_test_score'], label='30_arbres', marker='D')
+plt.plot(df_gs40['param_max_depth'],df_gs40['mean_test_score'], label='40_arbres', marker='D')
+plt.plot(df_gs400_2['param_max_depth'],df_gs400_2['mean_test_score'], label='400_arbres', marker='D')
+plt.plot(df_gs1000['param_max_depth'],df_gs1000['mean_test_score'], label='1000_arbres', marker='D')
+
+
+plt.legend()
+plt.title('')
+plt.show(block=False)
+
+plt.subplot(2,2,1)
+plt.plot(df_gs10['param_max_depth'],df_gs10['mean_test_score'], label='test', marker='D',color='b')
+plt.plot(df_gs10['param_max_depth'],df_gs10['mean_train_score'], label='train', marker='D',color='r')
+plt.title('10 arbres')
+plt.subplot(2,2,2)
+plt.plot(df_gs20['param_max_depth'],df_gs20['mean_test_score'], label='test', marker='D',color='b')
+plt.plot(df_gs20['param_max_depth'],df_gs20['mean_train_score'], label='train', marker='D',color='r')
+plt.title('20 arbres')
+plt.subplot(2,2,3)
+plt.plot(df_gs30['param_max_depth'],df_gs30['mean_test_score'], label='test', marker='D',color='b')
+plt.plot(df_gs30['param_max_depth'],df_gs30['mean_train_score'], label='train', marker='D',color='r')
+plt.title('30 arbres')
+plt.legend()
+plt.show()
+
+#df_gs.to_csv('gs_rfr5.csv')
 
 #record
 #param_max_features param_n_estimators param_max_depth  mean_test_score  std_test_score variables  mean_fit_time
@@ -368,12 +482,14 @@ test_final=test[['loss']]
 test_final.sort_values('loss')
 test_final.to_csv('resultat.csv')
 #test_final.to_csv('meilleur_resultat_gbr.csv')
-test_final.to_csv('meilleur_resultat_rid.csv')
+#test_final.to_csv('meilleur_resultat_rid.csv')
+test_final.to_csv('meilleur_resultat_rfr.csv')
 
 df_viz['residus']=residus
 
 
 aa=pd.read_csv('meilleur_resultat_gbr.csv', index_col=0)
+aa.sort_values('loss')
 bb=pd.read_csv('meilleur_resultat_rid.csv', index_col=0)
 
 cc=aa.join(bb,lsuffix='aa',rsuffix='bb')
